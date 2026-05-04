@@ -18,10 +18,13 @@ apt-get install -y -qq \
     cron logrotate
 
 echo "==> Hostname ayarı"
-read -rp "Bu sunucunun hostname'i (örn. vds-web): " HOSTNAME_IN
+# HOSTNAME_IN env var ile gelir (otomasyon), yoksa interaktif sorar
+if [[ -z "${HOSTNAME_IN:-}" ]]; then
+    read -rp "Bu sunucunun hostname'i (örn. vds-web): " HOSTNAME_IN
+fi
 if [[ -n "$HOSTNAME_IN" ]]; then
     hostnamectl set-hostname "$HOSTNAME_IN"
-    echo "127.0.1.1 $HOSTNAME_IN" >> /etc/hosts
+    grep -q "127.0.1.1 $HOSTNAME_IN" /etc/hosts || echo "127.0.1.1 $HOSTNAME_IN" >> /etc/hosts
 fi
 
 echo "==> Saat dilimi: Europe/Istanbul"

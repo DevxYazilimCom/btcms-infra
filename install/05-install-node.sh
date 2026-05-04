@@ -19,7 +19,10 @@ pm2 set pm2-logrotate:retain 7
 pm2 set pm2-logrotate:compress true
 
 echo "==> Google Chrome (puppeteer için — sadece scrape sunucularında)"
-read -rp "Bu sunucuda puppeteer çalışacak mı? (vds-scrape=evet, vds-bots=hayır) [y/N] " WANT_CHROME
+# WANT_CHROME=y env var ile bypass, yoksa sor
+if [[ -z "${WANT_CHROME:-}" ]]; then
+    read -rp "Bu sunucuda puppeteer çalışacak mı? (vds-scrape=evet, vds-bots=hayır) [y/N] " WANT_CHROME
+fi
 if [[ "${WANT_CHROME,,}" == "y" ]]; then
     wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
     apt-get install -y -qq /tmp/chrome.deb
