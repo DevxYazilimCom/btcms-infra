@@ -1,0 +1,126 @@
+# BTCMS — Caddy 2 ana config
+# Tüm subdomain'ler Cloudflare proxy arkasında, Origin Cert (15 yıl)
+# Deploy: scp btcms-infra/caddy/Caddyfile root@<vds-web>:/etc/caddy/ && systemctl reload caddy
+
+{
+    # Otomatik HTTPS kapalı (kendi cert'imizi kullanıyoruz)
+    auto_https disable_certs
+
+    # Admin endpoint'i kapat (production)
+    admin off
+
+    # Cloudflare gerçek IP'yi forward eder
+    servers {
+        trusted_proxies cloudflare
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100MiB
+            roll_keep 7
+        }
+        format json
+    }
+}
+
+# ----------------------------------------------------------------------
+# Snippet: Cloudflare Origin Cert + ortak header'lar
+# ----------------------------------------------------------------------
+(cf_tls) {
+    tls /etc/caddy/cf-origin.pem /etc/caddy/cf-origin.key
+}
+
+(common_headers) {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}
+
+# ----------------------------------------------------------------------
+# admin.betsoft.dev — CodeIgniter admin paneli
+# ----------------------------------------------------------------------
+admin.betsoft.dev {
+    import cf_tls
+    import common_headers
+    encode gzip zstd
+
+    root * /var/www/btcms-admin/public
+    php_fastcgi unix//run/php/php8.3-fpm.sock
+    file_server
+
+    @denied {
+        path /writable/* /vendor/* /app/* /tests/* /.env /composer.* /spark
+    }
+    respond @denied 403
+}
+
+# ----------------------------------------------------------------------
+# bonus.betsoft.dev — public bonus-talep formu (auth yok, rate-limit'li)
+# ----------------------------------------------------------------------
+bonus.betsoft.dev {
+    import cf_tls
+    import common_headers
+    encode gzip zstd
+
+    root * /var/www/btcms-admin/public
+    php_fastcgi unix//run/php/php8.3-fpm.sock
+    file_server
+
+    # Sadece /bonus-talep ve asset'lere izin
+    @blocked {
+        not path /bonus-talep* /assets/*
+    }
+    respond @blocked 404
+}
+
+# ----------------------------------------------------------------------
+# btk.betsoft.dev — vds-bots:8001 reverse proxy
+# ----------------------------------------------------------------------
+btk.betsoft.dev {
+    import cf_tls
+    import common_headers
+    reverse_proxy 10.10.10.30:8001
+}
+
+# ----------------------------------------------------------------------
+# rapor.betsoft.dev — vds-scrape:3001 (dagur-rapor)
+# ----------------------------------------------------------------------
+rapor.betsoft.dev {
+    import cf_tls
+    import common_headers
+    reverse_proxy 10.10.10.20:3001
+}
+
+# ----------------------------------------------------------------------
+# vpn.betsoft.dev — placeholder (servis eklenecek)
+# ----------------------------------------------------------------------
+vpn.betsoft.dev {
+    import cf_tls
+    import common_headers
+    respond "VPN paneli yakında." 503
+}
+
+# ----------------------------------------------------------------------
+# lookup.betsoft.dev — vds-scrape:8767 (dagur-lookup, sadece iç IP'lerden)
+# ----------------------------------------------------------------------
+lookup.betsoft.dev {
+    import cf_tls
+    import common_headers
+
+    @cf_only {
+        client_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 \
+                  141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 \
+                  197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 \
+                  104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
+    }
+    @blocked not client_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 \
+              141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 \
+              197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 \
+              104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
+    respond @blocked 403
+    reverse_proxy 10.10.10.20:8767
+}

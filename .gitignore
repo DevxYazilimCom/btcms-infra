@@ -1,0 +1,27 @@
+# Sırlar — git'e ASLA gitmemeli
+secrets/*
+!secrets/.gitignore
+!secrets/README.md
+!secrets/*.example
+*.pem
+*.key
+*.crt
+.env
+.env.*
+!.env.example
+
+# Build çıktıları + temp
+*.log
+*.bak
+*.tmp
+__pycache__/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
