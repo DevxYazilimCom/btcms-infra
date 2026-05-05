@@ -54,13 +54,17 @@ admin.betsoft.dev {
     encode gzip zstd
 
     root * /var/www/btcms-admin/public
-    php_fastcgi unix//run/php/php8.3-fpm.sock
-    file_server
 
     @denied {
         path /writable/* /vendor/* /app/* /tests/* /.env /composer.* /spark
     }
     respond @denied 403
+
+    # CI4 router: önce statik dosya, yoksa index.php (front controller)
+    php_fastcgi unix//run/php/php8.3-fpm.sock {
+        try_files {path} /index.php?{query}
+    }
+    file_server
 }
 
 # ----------------------------------------------------------------------
